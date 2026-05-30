@@ -55,7 +55,7 @@ import {
   rejectSkillProposal,
 } from "../../skills/workshop/service.js";
 import { skillsUploadHandlers } from "./skills-upload.js";
-import type { GatewayRequestContext, GatewayRequestHandlers } from "./types.js";
+import type { GatewayRequestContext, GatewayRequestHandlers, RespondFn } from "./types.js";
 
 function resolveSkillsAgentWorkspace(params: unknown, context: GatewayRequestContext) {
   const cfg = context.getRuntimeConfig();
@@ -82,9 +82,9 @@ function resolveSkillsAgentWorkspace(params: unknown, context: GatewayRequestCon
 }
 
 function respondInvalidParams(
-  respond: (success: boolean, result: unknown, err: unknown) => void,
+  respond: RespondFn,
   method: string,
-  errors: unknown,
+  errors: Parameters<typeof formatValidationErrors>[0],
 ) {
   respond(
     false,
@@ -96,10 +96,7 @@ function respondInvalidParams(
   );
 }
 
-function respondSkillWorkshopError(
-  respond: (success: boolean, result: unknown, err: unknown) => void,
-  err: unknown,
-) {
+function respondSkillWorkshopError(respond: RespondFn, err: unknown) {
   respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, formatErrorMessage(err)));
 }
 
