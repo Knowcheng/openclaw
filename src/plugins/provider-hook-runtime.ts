@@ -1,4 +1,4 @@
-// plugins provider hook runtime helpers and runtime behavior.
+// Resolves provider runtime plugins and delegates provider hook calls lazily.
 import { resolveModelCatalogScope } from "../agents/model-catalog-scope.js";
 import { normalizeProviderId } from "../agents/provider-id.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
@@ -34,7 +34,7 @@ let providerRuntimePluginCache: ConfigScopedRuntimeCache<ProviderPlugin | null> 
 const defaultProviderRuntimePluginCache = new PluginLruCache<ProviderPlugin | null>(128);
 const PREPARED_PROVIDER_RUNTIME_SURFACES = ["channel"] as const;
 
-/** Shared type for Provider Runtime Plugin Lookup Params in src/plugins. */
+/** Inputs used to locate the runtime plugin that owns a provider/model hook. */
 export type ProviderRuntimePluginLookupParams = {
   provider: string;
   modelId?: string | null;
@@ -45,17 +45,17 @@ export type ProviderRuntimePluginLookupParams = {
   bundledProviderVitestCompat?: boolean;
 };
 
-/** Shared type for Provider Runtime Plugin Handle in src/plugins. */
+/** Reusable provider runtime lookup result carried across hook calls. */
 export type ProviderRuntimePluginHandle = ProviderRuntimePluginLookupParams & {
   plugin?: ProviderPlugin;
 };
 
-/** Shared type for Provider Runtime Plugin Handle Params in src/plugins. */
+/** Lookup params that may already include a reusable runtime plugin handle. */
 export type ProviderRuntimePluginHandleParams = ProviderRuntimePluginLookupParams & {
   runtimeHandle?: ProviderRuntimePluginHandle;
 };
 
-/** Reused helper for clear Provider Runtime Plugin Cache For Test behavior in src/plugins. */
+/** Clears provider runtime plugin caches for isolated tests. */
 export function clearProviderRuntimePluginCacheForTest(): void {
   providerRuntimePluginCache = new WeakMap();
   defaultProviderRuntimePluginCache.clear();
@@ -188,7 +188,7 @@ function findProviderRuntimePluginInRegistry(params: {
     });
 }
 
-/** Reused helper for resolve Provider Plugins For Hooks behavior in src/plugins. */
+/** Resolves provider plugins for hook lookup without activating plugin runtimes. */
 export function resolveProviderPluginsForHooks(params: {
   config?: OpenClawConfig;
   workspaceDir?: string;
@@ -224,7 +224,7 @@ export function resolveProviderPluginsForHooks(params: {
   return resolved;
 }
 
-/** Reused helper for resolve Provider Runtime Plugin behavior in src/plugins. */
+/** Finds and caches the provider runtime plugin for a provider/model lookup. */
 export function resolveProviderRuntimePlugin(
   params: ProviderRuntimePluginLookupParams,
 ): ProviderPlugin | undefined {
@@ -302,7 +302,7 @@ export function resolveProviderRuntimePlugin(
   return plugin ?? undefined;
 }
 
-/** Reused helper for resolve Loaded Provider Runtime Plugin behavior in src/plugins. */
+/** Returns a provider plugin only from already loaded runtime registries. */
 export function resolveLoadedProviderRuntimePlugin(
   params: ProviderRuntimePluginLookupParams,
 ): ProviderPlugin | undefined {
@@ -316,7 +316,7 @@ export function resolveLoadedProviderRuntimePlugin(
   });
 }
 
-/** Reused helper for resolve Provider Hook Plugin behavior in src/plugins. */
+/** Resolves the provider hook plugin, falling back to hook-scoped provider lookup. */
 export function resolveProviderHookPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -333,7 +333,7 @@ export function resolveProviderHookPlugin(params: {
   );
 }
 
-/** Reused helper for resolve Provider Runtime Plugin Handle behavior in src/plugins. */
+/** Builds a reusable runtime plugin handle for repeated provider hook calls. */
 export function resolveProviderRuntimePluginHandle(
   params: ProviderRuntimePluginLookupParams,
 ): ProviderRuntimePluginHandle {
@@ -353,7 +353,7 @@ export function resolveProviderRuntimePluginHandle(
   };
 }
 
-/** Reused helper for ensure Provider Runtime Plugin Handle behavior in src/plugins. */
+/** Reuses a compatible runtime handle or resolves a fresh one for the requested model. */
 export function ensureProviderRuntimePluginHandle(
   params: ProviderRuntimePluginHandleParams,
 ): ProviderRuntimePluginHandle {
@@ -375,7 +375,7 @@ export function ensureProviderRuntimePluginHandle(
   return params.runtimeHandle;
 }
 
-/** Reused helper for prepare Provider Extra Params behavior in src/plugins. */
+/** Delegates provider preflight extra-param preparation to the owning plugin. */
 export function prepareProviderExtraParams(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -390,7 +390,7 @@ export function prepareProviderExtraParams(params: {
   );
 }
 
-/** Reused helper for resolve Provider Extra Params For Transport behavior in src/plugins. */
+/** Delegates transport-specific extra-param resolution to the owning plugin. */
 export function resolveProviderExtraParamsForTransport(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -405,7 +405,7 @@ export function resolveProviderExtraParamsForTransport(params: {
   );
 }
 
-/** Reused helper for resolve Provider Auth Profile Id behavior in src/plugins. */
+/** Resolves a provider-specific auth profile id through the owning plugin. */
 export function resolveProviderAuthProfileId(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -420,7 +420,7 @@ export function resolveProviderAuthProfileId(params: {
   return typeof resolved === "string" && resolved.trim() ? resolved.trim() : undefined;
 }
 
-/** Reused helper for resolve Provider Followup Fallback Route behavior in src/plugins. */
+/** Resolves provider-specific followup fallback routing through plugin hooks. */
 export function resolveProviderFollowupFallbackRoute(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -435,7 +435,7 @@ export function resolveProviderFollowupFallbackRoute(params: {
   );
 }
 
-/** Reused helper for wrap Provider Stream Fn behavior in src/plugins. */
+/** Applies a provider stream wrapper supplied by the owning plugin. */
 export function wrapProviderStreamFn(params: {
   provider: string;
   config?: OpenClawConfig;
