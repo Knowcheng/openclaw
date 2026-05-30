@@ -26,38 +26,38 @@ import {
   normalizeGooglePreviewModelId,
 } from "./provider-model-id-normalize.js";
 
-/** Re-exported API for src/plugin-sdk. */
+/** Public model provider config types for provider plugins. */
 export type {
   ModelApi,
   ModelProviderDeclarationConfig as ModelProviderConfig,
 } from "../config/types.models.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Unified catalog entry and source types used by provider catalog hooks. */
 export type {
   UnifiedModelCatalogEntry,
   UnifiedModelCatalogKind,
   UnifiedModelCatalogSource,
 } from "../model-catalog/types.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Model discovery and compatibility config types shared with providers. */
 export type {
   BedrockDiscoveryConfig,
   ModelCompatConfig,
   ModelDefinitionConfig,
 } from "../config/types.models.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Provider endpoint attribution result types. */
 export type {
   ProviderEndpointClass,
   ProviderEndpointResolution,
 } from "../agents/provider-attribution.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Provider plugin and unified catalog registration contracts. */
 export type {
   ProviderPlugin,
   UnifiedModelCatalogProviderContext,
   UnifiedModelCatalogProviderPlugin,
 } from "../plugins/types.js";
 
-/** Re-exported API for src/plugin-sdk, starting with DEFAULT CONTEXT TOKENS. */
+/** Default context-token budget used by model definitions. */
 export { DEFAULT_CONTEXT_TOKENS } from "../agents/defaults.js";
-/** Re-exported API for src/plugin-sdk. */
+/** GPT-5 prompt overlay helpers and behavior contract constants. */
 export {
   GPT5_BEHAVIOR_CONTRACT,
   GPT5_FRIENDLY_CHAT_PROMPT_OVERLAY,
@@ -70,9 +70,9 @@ export {
   resolveGpt5SystemPromptContribution,
   type Gpt5PromptOverlayMode,
 } from "../agents/gpt5-prompt-overlay.js";
-/** Re-exported API for src/plugin-sdk, starting with resolve Provider Endpoint. */
+/** Resolves provider endpoint attribution for a model/provider pair. */
 export { resolveProviderEndpoint } from "../agents/provider-attribution.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Model compatibility patching and tool-schema capability helpers. */
 export {
   applyModelCompatPatch,
   hasToolSchemaProfile,
@@ -81,9 +81,9 @@ export {
   resolveUnsupportedToolSchemaKeywords,
   resolveToolCallArgumentsEncoding,
 } from "../plugins/provider-model-compat.js";
-/** Re-exported API for src/plugin-sdk, starting with normalize Provider Id. */
+/** Normalizes provider ids for catalog and config matching. */
 export { normalizeProviderId } from "../agents/provider-id.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Replay policy builders and Gemini history sanitizers shared by provider plugins. */
 export {
   buildAnthropicReplayPolicyForModel,
   buildGoogleGeminiReplayPolicy,
@@ -95,12 +95,12 @@ export {
   sanitizeGoogleGeminiReplayHistory,
   buildStrictAnthropicReplayPolicy,
 };
-/** Re-exported API for src/plugin-sdk. */
+/** Moonshot thinking stream wrapper helpers. */
 export {
   createMoonshotThinkingWrapper,
   resolveMoonshotThinkingType,
 } from "../llm/providers/stream-wrappers/moonshot-thinking.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Provider model list template helpers. */
 export {
   cloneFirstTemplateModel,
   matchesExactOrPrefix,
@@ -181,10 +181,10 @@ export function resolveClaudeThinkingProfile(modelId: string): ProviderThinkingP
   return { levels: BASE_CLAUDE_THINKING_LEVELS };
 }
 
-/** Re-exported API for src/plugin-sdk, starting with normalize Antigravity Preview Model Id. */
+/** Preview model-id normalizers shared by Google-family providers. */
 export { normalizeAntigravityPreviewModelId, normalizeGooglePreviewModelId };
 
-/** Shared type for Provider Replay Family in src/plugin-sdk. */
+/** Named replay policy families that can be composed into provider hooks. */
 export type ProviderReplayFamily =
   | "openai-compatible"
   | "anthropic-by-model"
@@ -213,7 +213,7 @@ type BuildProviderReplayFamilyHooksOptions =
       anthropicModelDropThinkingBlocks?: boolean;
     };
 
-/** Reused helper for build Provider Replay Family Hooks behavior in src/plugin-sdk. */
+/** Builds provider replay hook implementations for a shared replay policy family. */
 export function buildProviderReplayFamilyHooks(
   options: BuildProviderReplayFamilyHooksOptions,
 ): ProviderReplayFamilyHooks {
