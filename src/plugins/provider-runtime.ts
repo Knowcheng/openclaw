@@ -1,4 +1,4 @@
-// plugins provider runtime helpers and runtime behavior.
+// Provider plugin runtime hook wrappers and policy helpers.
 import type { AuthProfileCredential, OAuthCredential } from "../agents/auth-profiles/types.js";
 import { resolveGpt5SystemPromptContribution } from "../agents/gpt5-prompt-overlay.js";
 import {
@@ -145,7 +145,7 @@ function hasExplicitProviderRuntimePluginActivation(params: {
   return ownerPluginIds.some((pluginId) => allow.has(pluginId) || entries[pluginId] !== undefined);
 }
 
-/** Re-exported API for src/plugins. */
+/** Provider hook runtime helpers re-exposed from the narrow runtime module. */
 export {
   prepareProviderExtraParams,
   resolveProviderAuthProfileId,
@@ -159,7 +159,7 @@ function resetExternalAuthFallbackWarningCacheForTest(): void {
   warnedExternalAuthFallbackPluginIds.clear();
 }
 
-/** Reused constant for testing behavior in src/plugins. */
+/** Test-only reset hooks for provider runtime caches and warning state. */
 export const testing = {
   clearProviderRuntimePluginCacheForTest,
   resetExternalAuthFallbackWarningCacheForTest,
@@ -188,7 +188,7 @@ function resolveProviderPluginsForCatalogHooks(params: {
   });
 }
 
-/** Reused helper for run Provider Dynamic Model behavior in src/plugins. */
+/** Resolve a runtime model through the owning provider plugin. */
 export function runProviderDynamicModel(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -199,7 +199,7 @@ export function runProviderDynamicModel(params: {
   return resolveProviderRuntimePlugin(params)?.resolveDynamicModel?.(params.context) ?? undefined;
 }
 
-/** Reused helper for resolve Provider System Prompt Contribution behavior in src/plugins. */
+/** Merge built-in and plugin system-prompt contributions for a provider turn. */
 export function resolveProviderSystemPromptContribution(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -255,7 +255,7 @@ function mergeUniquePromptSections(...sections: Array<string | undefined>): stri
   return uniqueSections.length > 0 ? uniqueSections.join("\n\n") : undefined;
 }
 
-/** Reused helper for transform Provider System Prompt behavior in src/plugins. */
+/** Apply provider and registry text transforms to the system prompt. */
 export function transformProviderSystemPrompt(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -274,7 +274,7 @@ export function transformProviderSystemPrompt(params: {
   return applyPluginTextReplacements(transformed, textTransforms?.input);
 }
 
-/** Reused helper for resolve Provider Text Transforms behavior in src/plugins. */
+/** Resolve provider-specific text transforms merged with runtime transforms. */
 export function resolveProviderTextTransforms(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -288,7 +288,7 @@ export function resolveProviderTextTransforms(params: {
   );
 }
 
-/** Reused helper for prepare Provider Dynamic Model behavior in src/plugins. */
+/** Let the provider plugin prewarm or validate a dynamic model. */
 export async function prepareProviderDynamicModel(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -299,7 +299,7 @@ export async function prepareProviderDynamicModel(params: {
   await resolveProviderRuntimePlugin(params)?.prepareDynamicModel?.(params.context);
 }
 
-/** Reused helper for should Prefer Provider Runtime Resolved Model behavior in src/plugins. */
+/** Ask whether provider runtime resolution should win over static model data. */
 export function shouldPreferProviderRuntimeResolvedModel(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -312,7 +312,7 @@ export function shouldPreferProviderRuntimeResolvedModel(params: {
   );
 }
 
-/** Reused helper for normalize Provider Resolved Model With Plugin behavior in src/plugins. */
+/** Normalize a resolved runtime model through the provider plugin. */
 export function normalizeProviderResolvedModelWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -332,7 +332,7 @@ export function normalizeProviderResolvedModelWithPlugin(params: {
   );
 }
 
-/** Reused helper for apply Provider Resolved Transport With Plugin behavior in src/plugins. */
+/** Apply plugin transport normalization to a resolved model. */
 export function applyProviderResolvedTransportWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -368,7 +368,7 @@ export function applyProviderResolvedTransportWithPlugin(params: {
   };
 }
 
-/** Reused helper for normalize Provider Model Id With Plugin behavior in src/plugins. */
+/** Normalize a provider model id via plugin hook or manifest metadata. */
 export function normalizeProviderModelIdWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -383,7 +383,7 @@ export function normalizeProviderModelIdWithPlugin(params: {
   );
 }
 
-/** Reused helper for normalize Provider Transport With Plugin behavior in src/plugins. */
+/** Normalize provider API/base URL transport fields with plugin hooks. */
 export function normalizeProviderTransportWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -413,7 +413,7 @@ export function normalizeProviderTransportWithPlugin(params: {
   return undefined;
 }
 
-/** Reused helper for normalize Provider Config With Plugin behavior in src/plugins. */
+/** Normalize provider config through bundled policy surfaces or runtime plugins. */
 export function normalizeProviderConfigWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -440,7 +440,7 @@ export function normalizeProviderConfigWithPlugin(params: {
   return normalizedMatched && hasConfigChange(normalizedMatched) ? normalizedMatched : undefined;
 }
 
-/** Reused helper for apply Provider Native Streaming Usage Compat With Plugin behavior in src/plugins. */
+/** Apply provider-native streaming usage compatibility policy. */
 export function applyProviderNativeStreamingUsageCompatWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -458,7 +458,7 @@ export function applyProviderNativeStreamingUsageCompatWithPlugin(params: {
   );
 }
 
-/** Reused helper for resolve Provider Config Api Key With Plugin behavior in src/plugins. */
+/** Resolve a provider API key from config using bundled or runtime policy. */
 export function resolveProviderConfigApiKeyWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -479,7 +479,7 @@ export function resolveProviderConfigApiKeyWithPlugin(params: {
   );
 }
 
-/** Reused helper for resolve Provider Replay Policy With Plugin behavior in src/plugins. */
+/** Resolve replay policy from the owning provider plugin. */
 export function resolveProviderReplayPolicyWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -490,7 +490,7 @@ export function resolveProviderReplayPolicyWithPlugin(params: {
   return resolveProviderRuntimePlugin(params)?.buildReplayPolicy?.(params.context) ?? undefined;
 }
 
-/** Reused helper for sanitize Provider Replay History With Plugin behavior in src/plugins. */
+/** Let the provider plugin sanitize replay history before transport use. */
 export async function sanitizeProviderReplayHistoryWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -501,7 +501,7 @@ export async function sanitizeProviderReplayHistoryWithPlugin(params: {
   return await resolveProviderRuntimePlugin(params)?.sanitizeReplayHistory?.(params.context);
 }
 
-/** Reused helper for validate Provider Replay Turns With Plugin behavior in src/plugins. */
+/** Let the provider plugin validate replay turns before retry/fallback. */
 export async function validateProviderReplayTurnsWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -512,7 +512,7 @@ export async function validateProviderReplayTurnsWithPlugin(params: {
   return await resolveProviderRuntimePlugin(params)?.validateReplayTurns?.(params.context);
 }
 
-/** Reused helper for normalize Provider Tool Schemas With Plugin behavior in src/plugins. */
+/** Normalize provider tool schemas through loaded or lazily loaded plugin hooks. */
 export function normalizeProviderToolSchemasWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -529,7 +529,7 @@ export function normalizeProviderToolSchemasWithPlugin(params: {
   return plugin?.normalizeToolSchemas?.(params.context) ?? undefined;
 }
 
-/** Reused helper for inspect Provider Tool Schemas With Plugin behavior in src/plugins. */
+/** Inspect provider tool schemas through loaded or lazily loaded plugin hooks. */
 export function inspectProviderToolSchemasWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -546,7 +546,7 @@ export function inspectProviderToolSchemasWithPlugin(params: {
   return plugin?.inspectToolSchemas?.(params.context) ?? undefined;
 }
 
-/** Reused helper for resolve Provider Reasoning Output Mode With Plugin behavior in src/plugins. */
+/** Resolve provider reasoning output mode from plugin policy. */
 export function resolveProviderReasoningOutputModeWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -558,7 +558,7 @@ export function resolveProviderReasoningOutputModeWithPlugin(params: {
   return mode === "native" || mode === "tagged" ? mode : undefined;
 }
 
-/** Reused helper for resolve Provider Stream Fn behavior in src/plugins. */
+/** Resolve a provider-created stream function, optionally without runtime loading. */
 export function resolveProviderStreamFn(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -574,7 +574,7 @@ export function resolveProviderStreamFn(params: {
   return plugin?.createStreamFn?.(params.context) ?? undefined;
 }
 
-/** Reused helper for resolve Provider Transport Turn State With Plugin behavior in src/plugins. */
+/** Resolve provider transport state for the current turn. */
 export function resolveProviderTransportTurnStateWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -587,7 +587,7 @@ export function resolveProviderTransportTurnStateWithPlugin(params: {
   );
 }
 
-/** Reused helper for resolve Provider Web Socket Session Policy With Plugin behavior in src/plugins. */
+/** Resolve provider WebSocket session policy. */
 export function resolveProviderWebSocketSessionPolicyWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -601,7 +601,7 @@ export function resolveProviderWebSocketSessionPolicyWithPlugin(params: {
   );
 }
 
-/** Reused helper for create Provider Embedding Provider behavior in src/plugins. */
+/** Create an embedding provider through the owning provider plugin. */
 export async function createProviderEmbeddingProvider(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -612,7 +612,7 @@ export async function createProviderEmbeddingProvider(params: {
   return await resolveProviderRuntimePlugin(params)?.createEmbeddingProvider?.(params.context);
 }
 
-/** Reused helper for prepare Provider Runtime Auth behavior in src/plugins. */
+/** Let the provider plugin prepare runtime auth for a request. */
 export async function prepareProviderRuntimeAuth(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -623,7 +623,7 @@ export async function prepareProviderRuntimeAuth(params: {
   return await resolveProviderRuntimePlugin(params)?.prepareRuntimeAuth?.(params.context);
 }
 
-/** Reused helper for resolve Provider Usage Auth With Plugin behavior in src/plugins. */
+/** Resolve provider usage auth through the owning provider plugin. */
 export async function resolveProviderUsageAuthWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -634,7 +634,7 @@ export async function resolveProviderUsageAuthWithPlugin(params: {
   return await resolveProviderRuntimePlugin(params)?.resolveUsageAuth?.(params.context);
 }
 
-/** Reused helper for resolve Provider Usage Snapshot With Plugin behavior in src/plugins. */
+/** Fetch provider usage snapshot through the owning provider plugin. */
 export async function resolveProviderUsageSnapshotWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -645,7 +645,7 @@ export async function resolveProviderUsageSnapshotWithPlugin(params: {
   return await resolveProviderRuntimePlugin(params)?.fetchUsageSnapshot?.(params.context);
 }
 
-/** Reused helper for matches Provider Context Overflow With Plugin behavior in src/plugins. */
+/** Check provider plugin policies for context-overflow failover errors. */
 export function matchesProviderContextOverflowWithPlugin(params: {
   provider?: string;
   config?: OpenClawConfig;
@@ -666,7 +666,7 @@ export function matchesProviderContextOverflowWithPlugin(params: {
   return false;
 }
 
-/** Reused helper for classify Provider Failover Reason With Plugin behavior in src/plugins. */
+/** Classify provider failover reason through matching provider plugins. */
 export function classifyProviderFailoverReasonWithPlugin(params: {
   provider?: string;
   config?: OpenClawConfig;
@@ -688,7 +688,7 @@ export function classifyProviderFailoverReasonWithPlugin(params: {
   return undefined;
 }
 
-/** Reused helper for format Provider Auth Profile Api Key With Plugin behavior in src/plugins. */
+/** Format an auth profile API key for display through provider policy. */
 export function formatProviderAuthProfileApiKeyWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -699,7 +699,7 @@ export function formatProviderAuthProfileApiKeyWithPlugin(params: {
   return resolveProviderRuntimePlugin(params)?.formatApiKey?.(params.context);
 }
 
-/** Reused helper for refresh Provider OAuth Credential With Plugin behavior in src/plugins. */
+/** Refresh an OAuth credential through the owning provider plugin. */
 export async function refreshProviderOAuthCredentialWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -710,7 +710,7 @@ export async function refreshProviderOAuthCredentialWithPlugin(params: {
   return await resolveProviderRuntimePlugin(params)?.refreshOAuth?.(params.context);
 }
 
-/** Reused helper for build Provider Auth Doctor Hint With Plugin behavior in src/plugins. */
+/** Build provider-specific auth doctor hints. */
 export async function buildProviderAuthDoctorHintWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -721,7 +721,7 @@ export async function buildProviderAuthDoctorHintWithPlugin(params: {
   return await resolveProviderRuntimePlugin(params)?.buildAuthDoctorHint?.(params.context);
 }
 
-/** Reused helper for resolve Provider Cache Ttl Eligibility behavior in src/plugins. */
+/** Resolve whether a request is eligible for provider cache TTL behavior. */
 export function resolveProviderCacheTtlEligibility(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -732,7 +732,7 @@ export function resolveProviderCacheTtlEligibility(params: {
   return resolveProviderRuntimePlugin(params)?.isCacheTtlEligible?.(params.context);
 }
 
-/** Reused helper for resolve Provider Binary Thinking behavior in src/plugins. */
+/** Resolve whether the provider/model uses binary thinking policy. */
 export function resolveProviderBinaryThinking(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -743,7 +743,7 @@ export function resolveProviderBinaryThinking(params: {
   return resolveProviderRuntimePlugin(params)?.isBinaryThinking?.(params.context);
 }
 
-/** Reused helper for resolve Provider XHigh Thinking behavior in src/plugins. */
+/** Resolve whether the provider/model supports x-high thinking. */
 export function resolveProviderXHighThinking(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -754,7 +754,7 @@ export function resolveProviderXHighThinking(params: {
   return resolveProviderRuntimePlugin(params)?.supportsXHighThinking?.(params.context);
 }
 
-/** Reused helper for resolve Provider Thinking Profile behavior in src/plugins. */
+/** Resolve default thinking profile from bundled or runtime provider policy. */
 export function resolveProviderThinkingProfile(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -769,7 +769,7 @@ export function resolveProviderThinkingProfile(params: {
   return resolveProviderRuntimePlugin(params)?.resolveThinkingProfile?.(params.context);
 }
 
-/** Reused helper for resolve Provider Default Thinking Level behavior in src/plugins. */
+/** Resolve the provider default thinking level. */
 export function resolveProviderDefaultThinkingLevel(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -780,7 +780,7 @@ export function resolveProviderDefaultThinkingLevel(params: {
   return resolveProviderRuntimePlugin(params)?.resolveDefaultThinkingLevel?.(params.context);
 }
 
-/** Reused helper for apply Provider Config Defaults With Plugin behavior in src/plugins. */
+/** Apply provider config defaults through bundled or runtime provider policy. */
 export function applyProviderConfigDefaultsWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -795,7 +795,7 @@ export function applyProviderConfigDefaultsWithPlugin(params: {
   return resolveProviderRuntimePlugin(params)?.applyConfigDefaults?.(params.context) ?? undefined;
 }
 
-/** Reused helper for resolve Provider Modern Model Ref behavior in src/plugins. */
+/** Resolve whether a provider model ref should use modern model policy. */
 export function resolveProviderModernModelRef(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -806,7 +806,7 @@ export function resolveProviderModernModelRef(params: {
   return resolveProviderRuntimePlugin(params)?.isModernModelRef?.(params.context);
 }
 
-/** Reused helper for build Provider Missing Auth Message With Plugin behavior in src/plugins. */
+/** Build a provider-specific missing-auth message. */
 export function buildProviderMissingAuthMessageWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -819,7 +819,7 @@ export function buildProviderMissingAuthMessageWithPlugin(params: {
   );
 }
 
-/** Reused helper for build Provider Unknown Model Hint With Plugin behavior in src/plugins. */
+/** Build a provider-specific unknown-model hint. */
 export function buildProviderUnknownModelHintWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -830,7 +830,7 @@ export function buildProviderUnknownModelHintWithPlugin(params: {
   return resolveProviderRuntimePlugin(params)?.buildUnknownModelHint?.(params.context) ?? undefined;
 }
 
-/** Reused helper for resolve Provider Synthetic Auth With Plugin behavior in src/plugins. */
+/** Resolve synthetic auth from discovery metadata or provider runtime hooks. */
 export function resolveProviderSyntheticAuthWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -905,7 +905,7 @@ export function resolveProviderSyntheticAuthWithPlugin(params: {
   return undefined;
 }
 
-/** Reused helper for resolve External Auth Profiles With Plugins behavior in src/plugins. */
+/** Resolve external auth profiles from declared provider plugin contracts. */
 export function resolveExternalAuthProfilesWithPlugins(params: {
   config?: OpenClawConfig;
   workspaceDir?: string;
@@ -962,7 +962,7 @@ export function resolveExternalAuthProfilesWithPlugins(params: {
   return matches;
 }
 
-/** Reused helper for resolve External OAuth Profiles With Plugins behavior in src/plugins. */
+/** Back-compat resolver for external OAuth profile hooks. */
 export function resolveExternalOAuthProfilesWithPlugins(params: {
   config?: OpenClawConfig;
   workspaceDir?: string;
@@ -972,7 +972,7 @@ export function resolveExternalOAuthProfilesWithPlugins(params: {
   return resolveExternalAuthProfilesWithPlugins(params);
 }
 
-/** Reused helper for should Defer Provider Synthetic Profile Auth With Plugin behavior in src/plugins. */
+/** Ask provider hooks whether synthetic profile auth should be deferred. */
 export function shouldDeferProviderSyntheticProfileAuthWithPlugin(params: {
   provider: string;
   config?: OpenClawConfig;
@@ -998,7 +998,7 @@ export function shouldDeferProviderSyntheticProfileAuthWithPlugin(params: {
   return undefined;
 }
 
-/** Reused helper for augment Model Catalog With Provider Plugins behavior in src/plugins. */
+/** Collect supplemental model catalog entries from provider plugin hooks. */
 export async function augmentModelCatalogWithProviderPlugins(params: {
   config?: OpenClawConfig;
   workspaceDir?: string;
