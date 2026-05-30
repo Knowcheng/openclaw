@@ -1,4 +1,4 @@
-// infra heartbeat runner helpers and runtime behavior.
+// Schedules heartbeat wakes, routes due work, and delivers heartbeat replies.
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -146,7 +146,7 @@ import {
   type SystemEvent,
 } from "./system-events.js";
 
-/** Shared type for Heartbeat Deps in src/infra. */
+/** Dependency injection surface for heartbeat delivery, queues, runtime, and tests. */
 export type HeartbeatDeps = OutboundSendDeps &
   ChannelHeartbeatDeps & {
     getReplyFromConfig?: typeof import("./heartbeat-runner.runtime.js").getReplyFromConfig;
@@ -246,9 +246,9 @@ function resolveHeartbeatChannelPlugin(channel: string): ChannelPlugin | undefin
   return activePlugin ?? getChannelPlugin(channel as ChannelId);
 }
 
-/** Re-exported API for src/infra, starting with are Heartbeats Enabled. */
+/** Process-wide heartbeat enable switch used by gateway and tests. */
 export { areHeartbeatsEnabled, setHeartbeatsEnabled };
-/** Re-exported API for src/infra. */
+/** Heartbeat config summary helpers exposed with the runner facade. */
 export {
   isHeartbeatEnabledForAgent,
   resolveHeartbeatIntervalMs,
@@ -262,7 +262,7 @@ type HeartbeatAgent = {
   heartbeat?: HeartbeatConfig;
 };
 
-/** Re-exported API for src/infra, starting with is Cron System Event. */
+/** Cron event classifier reused by heartbeat wake callers. */
 export { isCronSystemEvent };
 
 function canHeartbeatDeliverCommitments(heartbeat?: HeartbeatConfig): boolean {
@@ -315,7 +315,7 @@ function activeHoursConfigMatch(a?: ActiveHoursSchedule, b?: ActiveHoursSchedule
   return a.start === b.start && a.end === b.end && a.timezone === b.timezone;
 }
 
-/** Shared type for Heartbeat Runner in src/infra. */
+/** Running heartbeat scheduler handle. */
 export type HeartbeatRunner = {
   stop: () => void;
   updateConfig: (cfg: OpenClawConfig) => void;
@@ -410,7 +410,7 @@ function resolveHeartbeatPromptRaw(cfg: OpenClawConfig, heartbeat?: HeartbeatCon
   return heartbeat?.prompt ?? cfg.agents?.defaults?.heartbeat?.prompt;
 }
 
-/** Reused helper for resolve Heartbeat Prompt behavior in src/infra. */
+/** Resolves the configured heartbeat prompt into parsed task prompt text. */
 export function resolveHeartbeatPrompt(cfg: OpenClawConfig, heartbeat?: HeartbeatConfig) {
   return resolveHeartbeatPromptText(resolveHeartbeatPromptRaw(cfg, heartbeat));
 }
@@ -1276,7 +1276,7 @@ function selectSystemEventsConsumedByHeartbeat(params: {
   return preflight.pendingEventEntries;
 }
 
-/** Reused helper for run Heartbeat Once behavior in src/infra. */
+/** Runs one heartbeat wake, including gating, target resolution, reply, and delivery. */
 export async function runHeartbeatOnce(opts: {
   cfg?: OpenClawConfig;
   agentId?: string;
@@ -2097,7 +2097,7 @@ export async function runHeartbeatOnce(opts: {
   }
 }
 
-/** Reused helper for start Heartbeat Runner behavior in src/infra. */
+/** Starts the multi-agent heartbeat scheduler and returns its control handle. */
 export function startHeartbeatRunner(opts: {
   cfg?: OpenClawConfig;
   runtime?: RuntimeEnv;
