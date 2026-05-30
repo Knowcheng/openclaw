@@ -1384,12 +1384,19 @@ describe("plugin sdk alias helpers", () => {
       srcFile: "ip.ts",
       distFile: "ip.mjs",
     });
+    const modelCatalogProviderId = writeWorkspacePackageEntry({
+      root: fixture.root,
+      packageDir: "model-catalog-core",
+      srcFile: "provider-id.ts",
+      distFile: "provider-id.mjs",
+    });
     fs.rmSync(gatewayClient.distFile);
     fs.rmSync(gatewayClientTimeouts.distFile);
     fs.rmSync(gatewayProtocol.distFile);
     fs.rmSync(gatewayProtocolSchema.distFile);
     fs.rmSync(netPolicy.distFile);
     fs.rmSync(netPolicyIp.distFile);
+    fs.rmSync(modelCatalogProviderId.distFile);
     const sourcePluginEntry = writePluginEntry(
       fixture.root,
       bundledPluginFile("demo", "src/index.ts"),
@@ -1417,6 +1424,9 @@ describe("plugin sdk alias helpers", () => {
     expect(fs.realpathSync(aliases["@openclaw/net-policy/ip"] ?? "")).toBe(
       fs.realpathSync(netPolicyIp.srcFile),
     );
+    expect(fs.realpathSync(aliases["@openclaw/model-catalog-core/provider-id"] ?? "")).toBe(
+      fs.realpathSync(modelCatalogProviderId.srcFile),
+    );
   });
 
   it("aliases workspace package subpaths to dist when available", () => {
@@ -1439,6 +1449,12 @@ describe("plugin sdk alias helpers", () => {
       srcFile: "redact-sensitive-url.ts",
       distFile: "redact-sensitive-url.mjs",
     });
+    const modelCatalogCore = writeWorkspacePackageEntry({
+      root: fixture.root,
+      packageDir: "model-catalog-core",
+      srcFile: "provider-model-id-normalize.ts",
+      distFile: "provider-model-id-normalize.mjs",
+    });
     const sourcePluginEntry = writePluginEntry(
       fixture.root,
       bundledPluginFile("demo", "src/index.ts"),
@@ -1457,6 +1473,9 @@ describe("plugin sdk alias helpers", () => {
     expect(fs.realpathSync(aliases["@openclaw/net-policy/redact-sensitive-url"] ?? "")).toBe(
       fs.realpathSync(netPolicy.distFile),
     );
+    expect(
+      fs.realpathSync(aliases["@openclaw/model-catalog-core/provider-model-id-normalize"] ?? ""),
+    ).toBe(fs.realpathSync(modelCatalogCore.distFile));
   });
 
   it("aliases bundled plugin package public surfaces for source plugin transforms", () => {
