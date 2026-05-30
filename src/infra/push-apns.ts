@@ -1,4 +1,5 @@
-// infra push apns helpers and runtime behavior.
+// APNs registration storage and push delivery.
+// Supports direct APNs auth and official relay-backed pushes for alerts/background wakes.
 import { createHash, createPrivateKey, sign as signJwt } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -46,10 +47,10 @@ type RelayApnsRegistration = {
   tokenDebugSuffix?: string;
 };
 
-/** Shared type for Apns Registration in src/infra. */
+/** Stored APNs registration for a node, using direct token or relay credentials. */
 export type ApnsRegistration = DirectApnsRegistration | RelayApnsRegistration;
 
-/** Shared type for Apns Auth Config in src/infra. */
+/** Direct APNs JWT auth material. */
 export type ApnsAuthConfig = {
   teamId: string;
   keyId: string;
@@ -58,7 +59,7 @@ export type ApnsAuthConfig = {
 
 type ApnsAuthConfigResolution = { ok: true; value: ApnsAuthConfig } | { ok: false; error: string };
 
-/** Shared type for Apns Push Result in src/infra. */
+/** Normalized result of a direct or relay APNs push attempt. */
 export type ApnsPushResult = {
   ok: boolean;
   status: number;
@@ -410,7 +411,7 @@ async function persistRegistrationsState(
   });
 }
 
-/** Reused helper for normalize Apns Environment behavior in src/infra. */
+/** Normalize an APNs environment string to sandbox/production. */
 export function normalizeApnsEnvironment(value: unknown): ApnsEnvironment | null {
   if (typeof value !== "string") {
     return null;
@@ -422,7 +423,7 @@ export function normalizeApnsEnvironment(value: unknown): ApnsEnvironment | null
   return null;
 }
 
-/** Reused helper for register Apns Registration behavior in src/infra. */
+/** Register a direct or relay APNs target for a node. */
 export async function registerApnsRegistration(
   params: RegisterApnsParams,
 ): Promise<ApnsRegistration> {
@@ -498,7 +499,7 @@ export async function registerApnsRegistration(
   });
 }
 
-/** Reused helper for register Apns Token behavior in src/infra. */
+/** Register a direct APNs device token for a node. */
 export async function registerApnsToken(params: {
   nodeId: string;
   token: string;
@@ -512,7 +513,7 @@ export async function registerApnsToken(params: {
   })) as DirectApnsRegistration;
 }
 
-/** Reused helper for load Apns Registration behavior in src/infra. */
+/** Load one stored APNs registration by node id. */
 export async function loadApnsRegistration(
   nodeId: string,
   baseDir?: string,
@@ -525,7 +526,7 @@ export async function loadApnsRegistration(
   return state.registrationsByNodeId[normalizedNodeId] ?? null;
 }
 
-/** Reused helper for load Apns Registrations behavior in src/infra. */
+/** Load stored APNs registrations for the provided node ids. */
 export async function loadApnsRegistrations(
   nodeIds: readonly string[],
   baseDir?: string,
@@ -545,7 +546,7 @@ export async function loadApnsRegistrations(
   return registrations;
 }
 
-/** Reused helper for clear Apns Registration behavior in src/infra. */
+/** Remove a stored APNs registration by node id. */
 export async function clearApnsRegistration(nodeId: string, baseDir?: string): Promise<boolean> {
   const normalizedNodeId = normalizeNodeId(nodeId);
   if (!normalizedNodeId) {
@@ -587,7 +588,7 @@ function isSameApnsRegistration(a: ApnsRegistration, b: ApnsRegistration): boole
   return false;
 }
 
-/** Reused helper for clear Apns Registration If Current behavior in src/infra. */
+/** Remove a stored APNs registration only if it still matches the observed value. */
 export async function clearApnsRegistrationIfCurrent(params: {
   nodeId: string;
   registration: ApnsRegistration;
@@ -609,7 +610,7 @@ export async function clearApnsRegistrationIfCurrent(params: {
   });
 }
 
-/** Reused helper for should Invalidate Apns Registration behavior in src/infra. */
+/** Return whether an APNs response means the token/registration is invalid. */
 export function shouldInvalidateApnsRegistration(result: {
   status: number;
   reason?: string;
@@ -620,7 +621,7 @@ export function shouldInvalidateApnsRegistration(result: {
   return result.status === 400 && result.reason?.trim() === "BadDeviceToken";
 }
 
-/** Reused helper for should Clear Stored Apns Registration behavior in src/infra. */
+/** Return whether a stored direct APNs registration should be cleared after a push. */
 export function shouldClearStoredApnsRegistration(params: {
   registration: ApnsRegistration;
   result: { status: number; reason?: string };
@@ -638,7 +639,7 @@ export function shouldClearStoredApnsRegistration(params: {
   return shouldInvalidateApnsRegistration(params.result);
 }
 
-/** Reused helper for resolve Apns Auth Config From Env behavior in src/infra. */
+/** Resolve direct APNs auth config from environment variables or key file. */
 export async function resolveApnsAuthConfigFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<ApnsAuthConfigResolution> {
@@ -1079,7 +1080,7 @@ type RelayApnsExecApprovalResolvedParams = ApnsExecApprovalResolvedCommonParams 
   requestSender?: never;
 };
 
-/** Reused helper for send Apns Alert behavior in src/infra. */
+/** Send a user-visible APNs alert through direct APNs or relay transport. */
 export async function sendApnsAlert(
   params: DirectApnsAlertParams | RelayApnsAlertParams,
 ): Promise<ApnsPushAlertResult> {
@@ -1113,7 +1114,7 @@ export async function sendApnsAlert(
   });
 }
 
-/** Reused helper for send Apns Background Wake behavior in src/infra. */
+/** Send a background APNs wake through direct APNs or relay transport. */
 export async function sendApnsBackgroundWake(
   params: DirectApnsBackgroundWakeParams | RelayApnsBackgroundWakeParams,
 ): Promise<ApnsPushWakeResult> {
@@ -1146,7 +1147,7 @@ export async function sendApnsBackgroundWake(
   });
 }
 
-/** Reused helper for send Apns Exec Approval Alert behavior in src/infra. */
+/** Send the APNs alert that opens an exec approval request. */
 export async function sendApnsExecApprovalAlert(
   params: DirectApnsExecApprovalAlertParams | RelayApnsExecApprovalAlertParams,
 ): Promise<ApnsPushAlertResult> {
@@ -1179,7 +1180,7 @@ export async function sendApnsExecApprovalAlert(
   });
 }
 
-/** Reused helper for send Apns Exec Approval Resolved Wake behavior in src/infra. */
+/** Send the APNs background wake that updates a resolved exec approval. */
 export async function sendApnsExecApprovalResolvedWake(
   params: DirectApnsExecApprovalResolvedParams | RelayApnsExecApprovalResolvedParams,
 ): Promise<ApnsPushWakeResult> {
@@ -1212,5 +1213,5 @@ export async function sendApnsExecApprovalResolvedWake(
   });
 }
 
-/** Re-exported API for src/infra, starting with type. */
+/** APNs relay config resolver re-exported for push setup callers. */
 export { type ApnsRelayConfig, resolveApnsRelayConfigFromEnv };
