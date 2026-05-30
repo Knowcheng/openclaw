@@ -7,7 +7,7 @@ import {
   THINKING_LEVEL_RANKS,
 } from "./thinking.shared.js";
 import type { ThinkLevel, ThinkingCatalogEntry } from "./thinking.shared.js";
-/** Re-exported API for src/auto-reply. */
+/** Shared thinking, reasoning, verbosity, trace, and usage normalization helpers. */
 export {
   formatXHighModelHint,
   isSessionDefaultDirectiveValue,
@@ -22,7 +22,7 @@ export {
   resolveResponseUsageMode,
   resolveElevatedMode,
 } from "./thinking.shared.js";
-/** Re-exported API for src/auto-reply. */
+/** Shared thinking and response display option types. */
 export type {
   ElevatedLevel,
   ElevatedMode,
@@ -46,7 +46,7 @@ import {
   normalizeOptionalString,
 } from "../shared/string-coerce.js";
 
-/** Shared type for Thinking Level Option in src/auto-reply. */
+/** Display option for one supported thinking level. */
 export type ThinkingLevelOption = {
   id: ThinkLevel;
   label: string;
@@ -176,7 +176,7 @@ function appendProfileLevel(profile: ResolvedThinkingProfile, id: ThinkLevel) {
   profile.levels = profile.levels.toSorted((a, b) => a.rank - b.rank);
 }
 
-/** Reused helper for resolve Thinking Profile behavior in src/auto-reply. */
+/** Resolves supported thinking levels/defaults from provider policy and model catalog data. */
 export function resolveThinkingProfile(params: {
   provider?: string | null;
   model?: string | null;
@@ -243,7 +243,7 @@ export function resolveThinkingProfile(params: {
   return profile;
 }
 
-/** Reused helper for is Binary Thinking Provider behavior in src/auto-reply. */
+/** Detects providers whose thinking support is effectively off/on. */
 export function isBinaryThinkingProvider(provider?: string | null, model?: string | null): boolean {
   const profile = resolveThinkingProfile({ provider, model });
   return profile.levels.length === 2 && profile.levels.some((level) => level.label === "on");
@@ -260,12 +260,12 @@ function supportsThinkingLevel(
   );
 }
 
-/** Reused helper for supports XHigh Thinking behavior in src/auto-reply. */
+/** Checks whether a provider/model supports the xhigh thinking level. */
 export function supportsXHighThinking(provider?: string | null, model?: string | null): boolean {
   return supportsThinkingLevel(provider, model, "xhigh");
 }
 
-/** Reused helper for list Thinking Levels behavior in src/auto-reply. */
+/** Lists supported thinking level ids for a provider/model. */
 export function listThinkingLevels(
   provider?: string | null,
   model?: string | null,
@@ -275,7 +275,7 @@ export function listThinkingLevels(
   return profile.levels.map((level) => level.id);
 }
 
-/** Reused helper for list Thinking Level Options behavior in src/auto-reply. */
+/** Lists supported thinking level display options for a provider/model. */
 export function listThinkingLevelOptions(
   provider?: string | null,
   model?: string | null,
@@ -285,7 +285,7 @@ export function listThinkingLevelOptions(
   return profile.levels.map(({ id, label }) => ({ id, label }));
 }
 
-/** Reused helper for list Thinking Level Labels behavior in src/auto-reply. */
+/** Lists supported thinking level labels for UI/status display. */
 export function listThinkingLevelLabels(
   provider?: string | null,
   model?: string | null,
@@ -294,7 +294,7 @@ export function listThinkingLevelLabels(
   return listThinkingLevelOptions(provider, model, catalog).map((level) => level.label);
 }
 
-/** Reused helper for format Thinking Levels behavior in src/auto-reply. */
+/** Formats supported thinking level labels with a caller-provided separator. */
 export function formatThinkingLevels(
   provider?: string | null,
   model?: string | null,
@@ -305,7 +305,7 @@ export function formatThinkingLevels(
   return profile.levels.map(({ label }) => label).join(separator);
 }
 
-/** Reused helper for resolve Thinking Default For Model behavior in src/auto-reply. */
+/** Resolves the default thinking level for a provider/model. */
 export function resolveThinkingDefaultForModel(params: {
   provider: string;
   model: string;
@@ -326,7 +326,7 @@ export function resolveThinkingDefaultForModel(params: {
   return resolveSupportedThinkingLevelFromProfile(profile, "medium");
 }
 
-/** Reused helper for resolve Largest Supported Thinking Level behavior in src/auto-reply. */
+/** Resolves the strongest non-off thinking level supported by a provider/model. */
 export function resolveLargestSupportedThinkingLevel(
   provider?: string | null,
   model?: string | null,
@@ -344,7 +344,7 @@ export function resolveLargestSupportedThinkingLevel(
   return bestLevel?.id ?? "off";
 }
 
-/** Reused helper for is Thinking Level Supported behavior in src/auto-reply. */
+/** Checks whether a requested thinking level is supported. */
 export function isThinkingLevelSupported(params: {
   provider?: string | null;
   model?: string | null;
@@ -370,7 +370,7 @@ function resolveSupportedThinkingLevelFromProfile(
   );
 }
 
-/** Reused helper for resolve Supported Thinking Level behavior in src/auto-reply. */
+/** Downgrades a requested thinking level to the nearest supported level. */
 export function resolveSupportedThinkingLevel(params: {
   provider?: string | null;
   model?: string | null;

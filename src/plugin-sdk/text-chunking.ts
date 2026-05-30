@@ -1,4 +1,4 @@
-// plugin-sdk text chunking helpers and runtime behavior.
+// Public SDK text chunking, Markdown rendering, and delivery sanitization helpers.
 import { chunkTextByBreakResolver } from "../shared/text-chunking.js";
 
 /** Chunk outbound text while preferring newline boundaries over spaces. */
@@ -10,7 +10,7 @@ export function chunkTextForOutbound(text: string, limit: number): string[] {
   });
 }
 
-/** Re-exported API for src/plugin-sdk. */
+/** Markdown intermediate representation parsing and slicing helpers. */
 export {
   chunkMarkdownIR,
   markdownToIR,
@@ -23,12 +23,12 @@ export {
   type MarkdownStyleSpan,
   type MarkdownTableMeta,
 } from "../markdown/ir.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Render-aware Markdown chunking helpers that preserve output limits. */
 export {
   renderMarkdownIRChunksWithinLimit,
   type RenderMarkdownIRChunksWithinLimitOptions,
 } from "../markdown/render-aware-chunking.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Markdown renderer and style marker contracts for channel delivery. */
 export {
   renderMarkdownWithMarkers,
   type RenderLink,
@@ -36,9 +36,9 @@ export {
   type RenderStyleMap,
   type RenderStyleMarker,
 } from "../markdown/render.js";
-/** Re-exported API for src/plugin-sdk, starting with convert Markdown Tables. */
+/** Converts Markdown tables for channel-safe delivery. */
 export { convertMarkdownTables } from "../markdown/tables.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Assistant-visible text sanitizers for stripping internal scaffolding. */
 export {
   sanitizeAssistantVisibleText,
   sanitizeAssistantVisibleTextWithOptions,
@@ -47,26 +47,26 @@ export {
   stripToolCallXmlTags,
   type AssistantVisibleTextSanitizerProfile,
 } from "../shared/text/assistant-visible-text.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Auto-linked file reference detection helpers. */
 export {
   FILE_REF_EXTENSIONS_WITH_TLD,
   isAutoLinkedFileRef,
 } from "../shared/text/auto-linked-file-ref.js";
-/** Re-exported API for src/plugin-sdk, starting with find Code Regions. */
+/** Code-region helpers used when stripping or chunking Markdown. */
 export { findCodeRegions, isInsideCode, type CodeRegion } from "../shared/text/code-regions.js";
-/** Re-exported API for src/plugin-sdk. */
+/** Reasoning tag stripping helpers for visible reply text. */
 export {
   stripReasoningTagsFromText,
   type ReasoningTagMode,
   type ReasoningTagTrim,
 } from "../shared/text/reasoning-tags.js";
-/** Re-exported API for src/plugin-sdk, starting with strip Markdown. */
+/** Strips Markdown formatting for plain-text channel fallbacks. */
 export { stripMarkdown } from "../shared/text/strip-markdown.js";
-/** Re-exported API for src/plugin-sdk, starting with sanitize Terminal Text. */
+/** Sanitizes terminal text before display or delivery. */
 export { sanitizeTerminalText } from "../terminal/safe-text.js";
-/** Re-exported API for src/plugin-sdk, starting with SYSTEM MARK. */
+/** System-message marker helpers for internal transcript annotations. */
 export { SYSTEM_MARK, hasSystemMark, prefixSystemMessage } from "../infra/system-message.ts";
-/** Re-exported API for src/plugin-sdk. */
+/** Inline directive stripping helpers for display and delivery paths. */
 export {
   stripInlineDirectiveTagsForDelivery,
   stripInlineDirectiveTagsForDisplay,
@@ -74,5 +74,5 @@ export {
   type DisplayMessageWithContent,
   type InlineDirectiveParseResult,
 } from "../utils/directive-tags.js";
-/** Re-exported API for src/plugin-sdk, starting with chunk Items. */
+/** Generic fixed-size item chunking helper. */
 export { chunkItems } from "../utils/chunk-items.js";
