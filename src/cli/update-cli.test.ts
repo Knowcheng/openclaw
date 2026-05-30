@@ -28,6 +28,8 @@ const resolveGlobalManager = vi.fn();
 const serviceLoaded = vi.fn();
 const serviceStop = vi.fn();
 const serviceRestart = vi.fn();
+const suspendScheduledTaskAutoStartForUpdate = vi.fn();
+const resumeScheduledTaskAutoStartAfterUpdate = vi.fn();
 const prepareRestartScript = vi.fn();
 const runRestartScript = vi.fn();
 const mockedRunDaemonInstall = vi.fn();
@@ -41,6 +43,15 @@ const probeGateway = vi.fn();
 const pathExists = vi.fn();
 const syncPluginsForUpdateChannel = vi.fn();
 const updateNpmInstalledPlugins = vi.fn();
+const runPostCorePluginConvergence = vi.fn(
+  async (params: { baselineInstallRecords?: unknown }) => ({
+    changes: [],
+    warnings: [],
+    errored: false,
+    smokeFailures: [],
+    installRecords: params.baselineInstallRecords ?? {},
+  }),
+);
 const loadInstalledPluginIndexInstallRecords = vi.fn(
   async (params: { config?: OpenClawConfig } = {}) => params.config?.plugins?.installs ?? {},
 );
@@ -245,13 +256,7 @@ vi.mock("./update-cli/post-core-plugin-convergence.js", () => ({
       })),
     errored: convergence.errored,
   }),
-  runPostCorePluginConvergence: vi.fn(async (params: { baselineInstallRecords?: unknown }) => ({
-    changes: [],
-    warnings: [],
-    errored: false,
-    smokeFailures: [],
-    installRecords: params.baselineInstallRecords ?? {},
-  })),
+  runPostCorePluginConvergence: (...args: unknown[]) => runPostCorePluginConvergence(...args),
 }));
 
 vi.mock("../daemon/service.js", () => ({
@@ -283,6 +288,13 @@ vi.mock("../daemon/service.js", () => ({
     stop: (...args: unknown[]) => serviceStop(...args),
     restart: (...args: unknown[]) => serviceRestart(...args),
   })),
+}));
+
+vi.mock("../daemon/schtasks.js", () => ({
+  suspendScheduledTaskAutoStartForUpdate: (...args: unknown[]) =>
+    suspendScheduledTaskAutoStartForUpdate(...args),
+  resumeScheduledTaskAutoStartAfterUpdate: (...args: unknown[]) =>
+    resumeScheduledTaskAutoStartAfterUpdate(...args),
 }));
 
 vi.mock("../daemon/launchd.js", async (importOriginal) => ({
@@ -430,6 +442,64 @@ describe("update-cli", () => {
         markerPath: null,
       },
     });
+  };
+
+  const setupRunningManagedPackageUpdate = async (prefix: string) => {
+    const tempDir = await createTrackedTempDir(prefix);
+    const nodeModules = path.join(tempDir, "node_modules");
+    const pkgRoot = path.join(nodeModules, "openclaw");
+    const entryPath = path.join(pkgRoot, "dist", "index.js");
+    mockPackageInstallStatus(pkgRoot);
+    await fs.mkdir(path.dirname(entryPath), { recursive: true });
+    await fs.writeFile(
+      path.join(pkgRoot, "package.json"),
+      JSON.stringify({ name: "openclaw", version: "2026.4.21" }),
+      "utf-8",
+    );
+    await fs.writeFile(entryPath, "export {};\n", "utf-8");
+    await writePackageDistInventory(pkgRoot);
+    serviceReadCommand.mockResolvedValue({
+      programArguments: ["openclaw", "gateway", "run"],
+      environment: {
+        OPENCLAW_SERVICE_MARKER: "openclaw",
+        OPENCLAW_SERVICE_KIND: "gateway",
+      },
+    });
+    serviceLoaded.mockResolvedValue(true);
+    serviceReadRuntime.mockResolvedValue({
+      status: "running",
+      pid: 4242,
+      state: "running",
+    });
+    pathExists.mockImplementation(async (candidate: string) => {
+      try {
+        await fs.access(candidate);
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    vi.mocked(runCommandWithTimeout).mockImplementation(async (argv) => {
+      if (Array.isArray(argv) && argv[0] === "npm" && argv[1] === "root" && argv[2] === "-g") {
+        return {
+          stdout: `${nodeModules}\n`,
+          stderr: "",
+          code: 0,
+          signal: null,
+          killed: false,
+          termination: "exit",
+        };
+      }
+      return {
+        stdout: "",
+        stderr: "",
+        code: 0,
+        signal: null,
+        killed: false,
+        termination: "exit",
+      };
+    });
+    return { entryPath, nodeModules, pkgRoot, tempDir };
   };
 
   const expectUpdateCallChannel = (channel: string) => {
@@ -785,6 +855,8 @@ describe("update-cli", () => {
     resolveGlobalManager.mockResolvedValue("npm");
     serviceStop.mockResolvedValue(undefined);
     serviceRestart.mockResolvedValue({ outcome: "completed" });
+    suspendScheduledTaskAutoStartForUpdate.mockResolvedValue(false);
+    resumeScheduledTaskAutoStartAfterUpdate.mockResolvedValue(false);
     serviceLoaded.mockResolvedValue(false);
     serviceReadCommand.mockImplementation(async () =>
       (await serviceLoaded()) ? { programArguments: ["openclaw", "gateway", "run"] } : null,
@@ -837,6 +909,15 @@ describe("update-cli", () => {
       config: baseConfig,
       outcomes: [],
     });
+    runPostCorePluginConvergence.mockImplementation(
+      async (params: { baselineInstallRecords?: unknown }) => ({
+        changes: [],
+        warnings: [],
+        errored: false,
+        smokeFailures: [],
+        installRecords: params.baselineInstallRecords ?? {},
+      }),
+    );
     checkShellCompletionStatus.mockResolvedValue({
       shell: "zsh",
       profileInstalled: false,
@@ -2707,6 +2788,92 @@ describe("update-cli", () => {
     );
     const requiredNpmInstallCallOrder = requireValue(npmInstallCallOrder, "npm install call order");
     expect(requiredServiceStopCallOrder).toBeLessThan(requiredNpmInstallCallOrder);
+  });
+
+  it("suspends Windows Scheduled Task autostart around package replacement", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    await setupRunningManagedPackageUpdate("openclaw-update-windows-task-");
+    suspendScheduledTaskAutoStartForUpdate.mockResolvedValue(true);
+    resumeScheduledTaskAutoStartAfterUpdate.mockResolvedValue(true);
+
+    await withEnvAsync(
+      {
+        OPENCLAW_SERVICE_MARKER: "openclaw",
+        OPENCLAW_SERVICE_KIND: "gateway",
+      },
+      async () => {
+        await updateCommand({ yes: true });
+      },
+    );
+
+    const npmInstallCallIndex = vi
+      .mocked(runCommandWithTimeout)
+      .mock.calls.findIndex(
+        (call) => Array.isArray(call[0]) && call[0][0] === "npm" && call[0][1] === "i",
+      );
+    const npmInstallCallOrder =
+      vi.mocked(runCommandWithTimeout).mock.invocationCallOrder[npmInstallCallIndex];
+    const serviceEnv = {
+      OPENCLAW_SERVICE_MARKER: "openclaw",
+      OPENCLAW_SERVICE_KIND: "gateway",
+    };
+    expect(suspendScheduledTaskAutoStartForUpdate).toHaveBeenCalledWith(
+      expect.objectContaining(serviceEnv),
+    );
+    expect(resumeScheduledTaskAutoStartAfterUpdate).toHaveBeenCalledWith(
+      expect.objectContaining(serviceEnv),
+    );
+
+    const suspendOrder = suspendScheduledTaskAutoStartForUpdate.mock.invocationCallOrder[0];
+    const stopOrder = serviceStop.mock.invocationCallOrder[0];
+    const resumeOrder = resumeScheduledTaskAutoStartAfterUpdate.mock.invocationCallOrder[0];
+    expect(requireValue(suspendOrder, "Scheduled Task suspend order")).toBeLessThan(
+      requireValue(stopOrder, "service stop order"),
+    );
+    expect(requireValue(stopOrder, "service stop order")).toBeLessThan(
+      requireValue(npmInstallCallOrder, "npm install call order"),
+    );
+    expect(requireValue(npmInstallCallOrder, "npm install call order")).toBeLessThan(
+      requireValue(resumeOrder, "Scheduled Task resume order"),
+    );
+  });
+
+  it("resumes Windows Scheduled Task autostart before post-core plugin failures exit", async () => {
+    vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    await setupRunningManagedPackageUpdate("openclaw-update-windows-task-post-core-");
+    suspendScheduledTaskAutoStartForUpdate.mockResolvedValue(true);
+    resumeScheduledTaskAutoStartAfterUpdate.mockResolvedValue(true);
+    runPostCorePluginConvergence.mockResolvedValueOnce({
+      changes: [],
+      warnings: [{ pluginId: "demo", message: "post-core sync failed", guidance: [] }],
+      errored: true,
+      smokeFailures: [],
+      installRecords: {},
+    });
+
+    await withEnvAsync(
+      {
+        OPENCLAW_SERVICE_MARKER: "openclaw",
+        OPENCLAW_SERVICE_KIND: "gateway",
+      },
+      async () => {
+        await updateCommand({ yes: true });
+      },
+    );
+
+    const resumeOrder = resumeScheduledTaskAutoStartAfterUpdate.mock.invocationCallOrder[0];
+    const exitOrder = vi.mocked(defaultRuntime.exit).mock.invocationCallOrder[0];
+    expect(resumeScheduledTaskAutoStartAfterUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        OPENCLAW_SERVICE_MARKER: "openclaw",
+        OPENCLAW_SERVICE_KIND: "gateway",
+      }),
+    );
+    expect(requireValue(resumeOrder, "Scheduled Task resume order")).toBeLessThan(
+      requireValue(exitOrder, "post-core failure exit order"),
+    );
+    expect(defaultRuntime.exit).toHaveBeenCalledWith(1);
+    expect(runRestartScript).not.toHaveBeenCalled();
   });
 
   it("keeps managed service stop output off stdout during json package updates", async () => {

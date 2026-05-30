@@ -42,6 +42,10 @@ import { resolveGatewayRestartLogPath } from "../../daemon/restart-logs.js";
 import { summarizeGatewayServiceLayout } from "../../daemon/service-layout.js";
 import type { GatewayServiceCommandConfig } from "../../daemon/service-types.js";
 import {
+  resumeScheduledTaskAutoStartAfterUpdate,
+  suspendScheduledTaskAutoStartForUpdate,
+} from "../../daemon/schtasks.js";
+import {
   readGatewayServiceState,
   resolveGatewayService,
   type GatewayService,
@@ -757,6 +761,7 @@ type PrePackageServiceStop = {
   running: boolean;
   blockMessage?: string;
   serviceEnv?: NodeJS.ProcessEnv;
+  windowsTaskAutoStartSuspended?: boolean;
 };
 
 type ManagedServiceRootRedirect = {
@@ -897,17 +902,44 @@ async function maybeStopManagedServiceBeforePackageUpdate(params: {
   if (!params.jsonMode) {
     defaultRuntime.log(theme.muted("Stopping managed gateway service before package update..."));
   }
-  await service.stop({
-    env: serviceState.env,
-    stdout: serviceControlStdoutForMode(params.jsonMode),
-  });
+  const windowsTaskAutoStartSuspended =
+    process.platform === "win32"
+      ? await suspendScheduledTaskAutoStartForUpdate(serviceState.env)
+      : false;
+  try {
+    await service.stop({
+      env: serviceState.env,
+      stdout: serviceControlStdoutForMode(params.jsonMode),
+    });
+  } catch (err) {
+    if (windowsTaskAutoStartSuspended) {
+      await resumeScheduledTaskAutoStartAfterUpdate(serviceState.env).catch(() => undefined);
+    }
+    throw err;
+  }
   return {
     stopped: true,
     inspected: true,
     runtimeInspected: true,
     running: true,
     serviceEnv: serviceState.env,
+    ...(windowsTaskAutoStartSuspended ? { windowsTaskAutoStartSuspended } : {}),
   };
+}
+
+async function maybeResumeWindowsTaskAutoStartAfterPackageUpdate(params: {
+  prePackageServiceStop: PrePackageServiceStop | undefined;
+}): Promise<void> {
+  const stopState = params.prePackageServiceStop;
+  if (
+    process.platform !== "win32" ||
+    !stopState?.windowsTaskAutoStartSuspended ||
+    !stopState.serviceEnv
+  ) {
+    return;
+  }
+  await resumeScheduledTaskAutoStartAfterUpdate(stopState.serviceEnv);
+  stopState.windowsTaskAutoStartSuspended = false;
 }
 
 async function maybeRestartServiceAfterFailedPackageUpdate(params: {
@@ -918,6 +950,9 @@ async function maybeRestartServiceAfterFailedPackageUpdate(params: {
     return;
   }
   try {
+    await maybeResumeWindowsTaskAutoStartAfterPackageUpdate({
+      prePackageServiceStop: params.prePackageServiceStop,
+    });
     await resolveGatewayService().restart({
       env: params.prePackageServiceStop.serviceEnv,
       stdout: serviceControlStdoutForMode(params.jsonMode),
@@ -1950,6 +1985,7 @@ async function maybeRestartService(params: {
   shouldRestart: boolean;
   result: UpdateRunResult;
   opts: UpdateCommandOptions;
+  prePackageServiceStop?: PrePackageServiceStop;
   refreshServiceEnv: boolean;
   serviceEnv?: NodeJS.ProcessEnv;
   gatewayPort: number;
@@ -1957,6 +1993,14 @@ async function maybeRestartService(params: {
   invocationCwd?: string;
   nodeRunner?: string;
 }): Promise<boolean> {
+  const isPackageUpdate = isPackageManagerUpdateMode(params.result.mode);
+  const resumePackageTaskAutoStart = async () => {
+    if (isPackageUpdate) {
+      await maybeResumeWindowsTaskAutoStartAfterPackageUpdate({
+        prePackageServiceStop: params.prePackageServiceStop,
+      });
+    }
+  };
   const verifyRestartedGateway = async (expectedGatewayVersion: string | undefined) => {
     const restartAfterStaleCleanup = async () => {
       if (params.refreshServiceEnv && isPackageManagerUpdateMode(params.result.mode)) {
@@ -2065,10 +2109,9 @@ async function maybeRestartService(params: {
     }
 
     try {
-      const expectedGatewayVersion = isPackageManagerUpdateMode(params.result.mode)
+      const expectedGatewayVersion = isPackageUpdate
         ? normalizeOptionalString(params.result.after?.version)
         : undefined;
-      const isPackageUpdate = isPackageManagerUpdateMode(params.result.mode);
       let restarted = false;
       let restartInitiated = false;
       let refreshedGatewayAlreadyHealthy = false;
@@ -2092,6 +2135,7 @@ async function maybeRestartService(params: {
             defaultRuntime.log(theme.warn(message));
           }
           if (isPackageUpdate) {
+            await resumePackageTaskAutoStart();
             return false;
           }
         }
@@ -2118,10 +2162,12 @@ async function maybeRestartService(params: {
       // that already produced the expected gateway version, a second kickstart
       // would only race the healthy supervisor-owned process.
       if (!refreshedGatewayAlreadyHealthy && params.restartScriptPath) {
+        await resumePackageTaskAutoStart();
         await createUpdateConfigSnapshot();
         await runRestartScript(params.restartScriptPath);
         restartInitiated = true;
       } else if (!refreshedGatewayAlreadyHealthy && params.refreshServiceEnv && isPackageUpdate) {
+        await resumePackageTaskAutoStart();
         await createUpdateConfigSnapshot();
         restarted = await runUpdatedInstallGatewayRestart({
           result: params.result,
@@ -2137,7 +2183,10 @@ async function maybeRestartService(params: {
         await createUpdateConfigSnapshot();
         restarted = await runDaemonRestart();
       } else if (!refreshedGatewayAlreadyHealthy && !params.opts.json) {
+        await resumePackageTaskAutoStart();
         defaultRuntime.log(theme.muted("Gateway: restart skipped (no installed service found)."));
+      } else {
+        await resumePackageTaskAutoStart();
       }
 
       const shouldVerifyRestart =
@@ -2193,6 +2242,7 @@ async function maybeRestartService(params: {
     return true;
   }
 
+  await resumePackageTaskAutoStart();
   if (!params.opts.json) {
     defaultRuntime.log("");
     defaultRuntime.log(theme.muted("Gateway: restart skipped (--no-restart)."));
@@ -3437,6 +3487,18 @@ async function updateCommandInternal(opts: UpdateCommandOptions): Promise<void> 
     return;
   }
 
+  try {
+    await maybeResumeWindowsTaskAutoStartAfterPackageUpdate({
+      prePackageServiceStop,
+    });
+  } catch (err) {
+    defaultRuntime.error(
+      `Failed to resume Windows Scheduled Task autostart after package update: ${String(err)}`,
+    );
+    defaultRuntime.exit(1);
+    return;
+  }
+
   const shouldResumePostCoreInFreshProcess = shouldResumePostCoreUpdateInFreshProcess({
     result,
     downgradeRisk,
@@ -3610,6 +3672,7 @@ async function updateCommandInternal(opts: UpdateCommandOptions): Promise<void> 
     shouldRestart,
     result: resultWithPostUpdate,
     opts,
+    prePackageServiceStop,
     refreshServiceEnv: refreshGatewayServiceEnv,
     serviceEnv: gatewayServiceEnv,
     gatewayPort,
